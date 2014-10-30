@@ -1,31 +1,89 @@
-﻿@{
+@{
     ViewBag.Title = "Home Page";
 }
 
-<div class="jumbotron">
-    <h1>ASP.NET</h1>
-    <p class="lead">ASP.NET is a free web framework for building great Web sites and Web applications using HTML, CSS and JavaScript.</p>
-    <p><a href="http://asp.net" class="btn btn-primary btn-lg">Learn more &raquo;</a></p>
-</div>
+<h1>Sample CRUD AJAX Application</h1>
+<ul id="notes"></ul>
+<input id="new_note_text" type="text"/>
+<button id="new_note_btn">Add new note</button>
+<script>
+    var ajax = function (url, method, callback, data) {
+        var request = new XMLHttpRequest();
+        request.onreadystatechange = function () {
+            var DONE = this.DONE || 4;
+            if (this.readyState === DONE) {
+                callback(request);
+            }
+        };
+        request.open(method, url, true);
+        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        request.setRequestHeader('Content-Type', 'application/json');
+        request.setRequestHeader('Accept', 'application/json');
+        request.send(data);
+    }
 
-<div class="row">
-    <div class="col-md-4">
-        <h2>Getting started</h2>
-        <p>
-            ASP.NET MVC gives you a powerful, patterns-based way to build dynamic websites that
-            enables a clean separation of concerns and gives you full control over markup
-            for enjoyable, agile development.
-        </p>
-        <p><a class="btn btn-default" href="http://go.microsoft.com/fwlink/?LinkId=301865">Learn more &raquo;</a></p>
-    </div>
-    <div class="col-md-4">
-        <h2>Get more libraries</h2>
-        <p>NuGet is a free Visual Studio extension that makes it easy to add, remove, and update libraries and tools in Visual Studio projects.</p>
-        <p><a class="btn btn-default" href="http://go.microsoft.com/fwlink/?LinkId=301866">Learn more &raquo;</a></p>
-    </div>
-    <div class="col-md-4">
-        <h2>Web Hosting</h2>
-        <p>You can easily find a web hosting company that offers the right mix of features and price for your applications.</p>
-        <p><a class="btn btn-default" href="http://go.microsoft.com/fwlink/?LinkId=301867">Learn more &raquo;</a></p>
-    </div>
-</div>
+    var deleteNoteCallback = function (req) {
+        console.log(req);
+        if (req.status == 200) {
+            ajax("/api/Notes", "GET", getNotesCallback, null);
+        }
+    }
+
+    var deleteNote = function (id) {
+        return function () {
+            ajax("/api/Notes/" + id, "DELETE", deleteNoteCallback, null);
+        }
+    }
+
+    var getNotesCallback  = function (req) {
+        if (req.status == 200) {
+            var notesDiv = document.getElementById("notes");
+            var notes = JSON.parse(req.responseText);
+            console.log(notes);
+            notesDiv.innerHTML = "";
+            notes.forEach(function (item, a, b) {
+                var note = document.createElement("li");
+                var delBtn = document.createElement("button");
+                delBtn.innerHTML = "Delete";
+                delBtn.onclick = deleteNote(item.ID);
+                var text = document.createTextNode("ID: " + item.ID + ", Content: " + item.Content);
+                note.insertBefore(delBtn, null);
+                note.insertBefore(text, null);
+                notesDiv.insertBefore(note, null);
+            });
+        }
+    }
+
+    var postNoteCallback = function (req) {
+        console.log(req);
+        if (req.status == 201) {
+            ajax("/api/Notes", "GET", getNotesCallback, null);
+        }
+    }
+
+    var newNoteBtnClick = function () {
+        var content = document.getElementById("new_note_text").value;
+        ajax("/api/Notes", "POST", postNoteCallback, "{\"Content\": \"" + content + "\"}");
+    }
+
+    var pollingCallback = function (req) {
+        if (req.status == 200) {
+            ajax("/api/Notes", "GET", getNotesCallback, null);
+            var note = JSON.parse(req.responseText);
+            console.log("You got new note: " + note.Content);
+        }
+        startPolling();
+    }
+
+    var startPolling = function () {
+        console.log("sending polling request");
+        ajax("/api/Polling", "GET", pollingCallback, null);
+    }
+
+    var main = function () {
+        document.getElementById("new_note_btn").onclick = newNoteBtnClick;
+        ajax("/api/Notes", "GET", getNotesCallback, null);
+        startPolling();
+    }
+    window.onload = main;
+</script>
